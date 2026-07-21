@@ -1,0 +1,57 @@
+[build]
+  functions = "netlify/functions"
+  publish = "public"
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/vendor-login"
+  to = "/.netlify/functions/vendor-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin-login"
+  to = "/.netlify/functions/admin-login"
+  status = 200
+
+[[redirects]]
+  from = "/api/logout"
+  to = "/.netlify/functions/logout"
+  status = 200
+
+[[redirects]]
+  from = "/api/me"
+  to = "/.netlify/functions/me"
+  status = 200
+
+[[redirects]]
+  from = "/api/quotes-create"
+  to = "/.netlify/functions/quotes-create"
+  status = 200
+
+[[redirects]]
+  from = "/api/quotes-list"
+  to = "/.netlify/functions/quotes-list"
+  status = 200
+
+[[redirects]]
+  from = "/api/vendors-list"
+  to = "/.netlify/functions/vendors-list"
+  status = 200
+
+[[redirects]]
+  from = "/api/vendors-create"
+  to = "/.netlify/functions/vendors-create"
+  status = 200
+
+[[redirects]]
+  from = "/api/vendors-toggle"
+  to = "/.netlify/functions/vendors-toggle"
+  status = 200
+
+[[redirects]]
+  from = "/"
+  to = "/login.html"
+  status = 200
+  force = false

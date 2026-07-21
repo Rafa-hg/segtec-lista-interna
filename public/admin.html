@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SEGTEC — Panel de administración</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #1F3864; --navy2: #2E5395; --orange: #E36C09;
+    --white: #FFFFFF; --gray: #595959; --lgray: #F2F5FB; --border: #D0D8E8;
+    --green: #375623; --red: #C00000;
+    --font: 'Inter','Segoe UI',Arial,sans-serif;
+  }
+  html { font-size: 13px; }
+  body { font-family: var(--font); background: var(--lgray); color: #1A1A2E; min-height: 100vh; }
+
+  #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 60%, #3a6bc4 100%); }
+  .login-box { background: var(--white); border-radius: 12px; padding: 48px 44px; width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+  .login-logo { text-align: center; margin-bottom: 32px; }
+  .login-logo .brand { font-size: 22px; font-weight: 800; letter-spacing: 2px; color: var(--navy); display: block; }
+  .login-logo .sub { font-size: 11px; color: var(--gray); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+  .login-box h2 { font-size: 16px; font-weight: 600; color: var(--navy); margin-bottom: 24px; text-align: center; }
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 11px; font-weight: 600; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .field input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; outline: none; }
+  .btn-login { width: 100%; padding: 12px; background: var(--navy); color: var(--white); border: none; border-radius: 6px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+  .btn-login:hover { background: var(--navy2); }
+  .login-error { background: #FEE; border: 1px solid #FCC; color: #C00; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-top: 12px; display: none; text-align: center; }
+
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  .topbar { background: var(--navy); color: var(--white); padding: 0 24px; height: 54px; display: flex; align-items: center; justify-content: space-between; }
+  .topbar-brand { font-size: 15px; font-weight: 800; letter-spacing: 1.5px; }
+  .topbar-sub { font-size: 10px; opacity: .6; letter-spacing: 1px; }
+  .btn-logout { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: var(--white); padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; }
+  .btn-logout:hover { background: rgba(255,255,255,0.22); }
+
+  .tabnav { background: var(--white); border-bottom: 2px solid var(--border); padding: 0 24px; display: flex; gap: 4px; }
+  .tab-btn { padding: 12px 20px; font-size: 12px; font-weight: 600; color: var(--gray); border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+  .tab-btn.active { color: var(--navy); border-bottom-color: var(--navy); }
+
+  .main { padding: 24px; flex: 1; max-width: 1200px; width: 100%; margin: 0 auto; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card { background: var(--white); border-radius: 8px; box-shadow: 0 2px 12px rgba(31,56,100,0.10); padding: 20px; margin-bottom: 20px; }
+  .card h3 { font-size: 14px; color: var(--navy); margin-bottom: 14px; }
+
+  .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .form-row .field { flex: 1; min-width: 160px; margin-bottom: 0; }
+  .form-row input, .form-row select { width: 100%; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; }
+  .btn { padding: 9px 18px; background: var(--navy); color: #fff; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .btn:hover { background: var(--navy2); }
+  .btn-outline { background: none; border: 1.5px solid var(--border); color: var(--gray); }
+  .btn-outline:hover { border-color: var(--navy); color: var(--navy); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 16px; }
+  thead th { background: #EEF2FA; color: var(--navy); font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 8px 10px; border-bottom: 2px solid var(--border); text-align: left; }
+  tbody td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: #F7F9FF; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; color: #fff; }
+  .badge-on { background: var(--green); }
+  .badge-off { background: var(--red); }
+  .link-btn { background: none; border: none; color: var(--navy2); cursor: pointer; font-size: 11px; text-decoration: underline; padding: 0; }
+  .empty { text-align: center; padding: 40px; color: var(--gray); font-size: 12px; }
+
+  .modal-overlay { position: fixed; inset: 0; background: rgba(10,15,25,0.5); display: none; align-items: center; justify-content: center; z-index: 200; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 8px; width: 600px; max-width: 92%; max-height: 85vh; overflow-y: auto; padding: 20px; }
+  .modal h3 { color: var(--navy); margin-bottom: 12px; }
+  .modal-close { float: right; background: none; border: none; font-size: 18px; cursor: pointer; color: var(--gray); }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo"><span class="brand">SEGTEC</span><span class="sub">Panel de administración</span></div>
+    <h2>Acceso admin</h2>
+    <div class="field"><label>Email</label><input type="email" id="a-email" placeholder="tu email" autocomplete="username"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="a-pass" placeholder="••••••••" autocomplete="current-password"></div>
+    <button class="btn-login" id="a-btn" onclick="doAdminLogin()">Ingresar</button>
+    <div class="login-error" id="a-error">Usuario o contraseña incorrectos.</div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div><div class="topbar-brand">SEGTEC</div><div class="topbar-sub">Panel de administración</div></div>
+    <button class="btn-logout" onclick="doAdminLogout()">Cerrar sesión</button>
+  </div>
+  <div class="tabnav">
+    <button class="tab-btn active" onclick="switchPanel('vendedores', this)">Vendedores</button>
+    <button class="tab-btn" onclick="switchPanel('presupuestos', this)">Presupuestos</button>
+  </div>
+
+  <div class="main">
+    <div class="panel active" id="panel-vendedores">
+      <div class="card">
+        <h3>Dar de alta un vendedor</h3>
+        <div class="form-row">
+          <div class="field"><label>Nombre</label><input type="text" id="v-name" placeholder="Nombre completo"></div>
+          <div class="field"><label>Email</label><input type="email" id="v-email" placeholder="email@segtec.com.ar"></div>
+          <div class="field"><label>Contraseña</label><input type="password" id="v-pass" placeholder="mínimo 8 caracteres"></div>
+          <button class="btn" onclick="createVendor()">Crear vendedor</button>
+        </div>
+        <div class="login-error" id="v-error" style="display:none;margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <h3>Vendedores</h3>
+        <table>
+          <thead><tr><th>Nombre</th><th>Email</th><th>Estado</th><th>Presupuestos</th><th>Alta</th><th>Acción</th></tr></thead>
+          <tbody id="vendors-tbody"></tbody>
+        </table>
+        <div class="empty" id="vendors-empty" style="display:none;">Todavía no hay vendedores cargados.</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-presupuestos">
+      <div class="card">
+        <h3>Filtros</h3>
+        <div class="form-row">
+          <div class="field"><label>Vendedor</label><select id="f-vendor"><option value="">Todos</option></select></div>
+          <div class="field"><label>Desde</label><input type="date" id="f-from"></div>
+          <div class="field"><label>Hasta</label><input type="date" id="f-to"></div>
+          <div class="field"><label>Cliente / empresa</label><input type="text" id="f-q" placeholder="Buscar..."></div>
+          <button class="btn" onclick="loadQuotes()">Filtrar</button>
+          <button class="btn btn-outline" onclick="resetQuoteFilters()">Limpiar</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Presupuestos emitidos</h3>
+        <table>
+          <thead><tr><th>Fecha</th><th>Vendedor</th><th>Cliente</th><th>Empresa</th><th>Total</th><th></th></tr></thead>
+          <tbody id="quotes-tbody"></tbody>
+        </table>
+        <div class="empty" id="quotes-empty" style="display:none;">No hay presupuestos que coincidan con el filtro.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3>Detalle del presupuesto</h3>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+function fmtMoney(v) { return '$ ' + Math.round(v || 0).toLocaleString('es-AR'); }
+function fmtDate(iso) { const d = new Date(iso); return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR', {hour:'2-digit',minute:'2-digit'}); }
+
+async function doAdminLogin() {
+  const email = document.getElementById('a-email').value.trim();
+  const password = document.getElementById('a-pass').value;
+  const errorBox = document.getElementById('a-error');
+  errorBox.style.display = 'none';
+  const btn = document.getElementById('a-btn');
+  btn.disabled = true; btn.textContent = 'Ingresando...';
+  try {
+    const res = await fetch('/api/admin-login', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(()=>({}));
+      errorBox.textContent = data.error || 'Usuario o contraseña incorrectos.';
+      errorBox.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Ingresar';
+      return;
+    }
+    showApp();
+  } catch (e) {
+    errorBox.textContent = 'No se pudo conectar. Intentá de nuevo.';
+    errorBox.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
+}
+document.getElementById('a-pass').addEventListener('keydown', e => { if (e.key==='Enter') doAdminLogin(); });
+
+function doAdminLogout() {
+  fetch('/api/logout', { credentials: 'include' }).finally(() => {
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('login-screen').style.display = 'flex';
+  });
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  loadVendors();
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/api/me', { credentials: 'include' });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.role === 'admin') { showApp(); return; }
+    }
+  } catch (e) {}
+});
+
+function switchPanel(name, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'presupuestos') loadQuotes();
+}
+
+async function loadVendors() {
+  const res = await fetch('/api/vendors-list', { credentials: 'include' });
+  if (!res.ok) return;
+  const data = await res.json();
+  const tbody = document.getElementById('vendors-tbody');
+  const empty = document.getElementById('vendors-empty');
+  const fSelect = document.getElementById('f-vendor');
+  tbody.innerHTML = '';
+  fSelect.innerHTML = '<option value="">Todos</option>';
+  if (!data.vendors.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  data.vendors.forEach(v => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>'+v.name+'</td><td>'+v.email+'</td>'+
+      '<td><span class="badge '+(v.active?'badge-on':'badge-off')+'">'+(v.active?'Activo':'Inactivo')+'</span></td>'+
+      '<td>'+v.quotes_count+'</td>'+
+      '<td>'+new Date(v.created_at).toLocaleDateString('es-AR')+'</td>'+
+      '<td><button class="link-btn" onclick="toggleVendor('+v.id+','+(!v.active)+')">'+(v.active?'Dar de baja':'Reactivar')+'</button></td>';
+    tbody.appendChild(tr);
+    const opt = document.createElement('option');
+    opt.value = v.id; opt.textContent = v.name;
+    fSelect.appendChild(opt);
+  });
+}
+
+async function createVendor() {
+  const name = document.getElementById('v-name').value.trim();
+  const email = document.getElementById('v-email').value.trim();
+  const password = document.getElementById('v-pass').value;
+  const errorBox = document.getElementById('v-error');
+  errorBox.style.display = 'none';
+  if (!name || !email || !password) {
+    errorBox.textContent = 'Completá nombre, email y contraseña.';
+    errorBox.style.display = 'block';
+    return;
+  }
+  const res = await fetch('/api/vendors-create', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+  const data = await res.json().catch(()=>({}));
+  if (!res.ok) {
+    errorBox.textContent = data.error || 'No se pudo crear el vendedor.';
+    errorBox.style.display = 'block';
+    return;
+  }
+  document.getElementById('v-name').value = '';
+  document.getElementById('v-email').value = '';
+  document.getElementById('v-pass').value = '';
+  loadVendors();
+}
+
+async function toggleVendor(id, active) {
+  await fetch('/api/vendors-toggle', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, active }),
+  });
+  loadVendors();
+}
+
+function resetQuoteFilters() {
+  document.getElementById('f-vendor').value = '';
+  document.getElementById('f-from').value = '';
+  document.getElementById('f-to').value = '';
+  document.getElementById('f-q').value = '';
+  loadQuotes();
+}
+
+async function loadQuotes() {
+  const params = new URLSearchParams();
+  const vendorId = document.getElementById('f-vendor').value;
+  const from = document.getElementById('f-from').value;
+  const to = document.getElementById('f-to').value;
+  const q = document.getElementById('f-q').value.trim();
+  if (vendorId) params.set('vendor_id', vendorId);
+  if (from) params.set('date_from', from);
+  if (to) params.set('date_to', to);
+  if (q) params.set('q', q);
+
+  const res = await fetch('/api/quotes-list?' + params.toString(), { credentials: 'include' });
+  const tbody = document.getElementById('quotes-tbody');
+  const empty = document.getElementById('quotes-empty');
+  tbody.innerHTML = '';
+  if (!res.ok) { empty.style.display = 'block'; empty.textContent = 'No se pudo cargar el listado.'; return; }
+  const data = await res.json();
+  if (!data.quotes.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  data.quotes.forEach(qt => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>'+fmtDate(qt.created_at)+'</td>'+
+      '<td>'+qt.vendor_name+'</td>'+
+      '<td>'+(qt.client_name||'—')+'</td>'+
+      '<td>'+(qt.client_company||'—')+'</td>'+
+      '<td>'+fmtMoney(qt.total)+'</td>'+
+      '<td><button class="link-btn" onclick="viewQuote('+qt.id+')">Ver detalle</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+async function viewQuote(id) {
+  const res = await fetch('/api/quotes-list?id=' + id, { credentials: 'include' });
+  if (!res.ok) return;
+  const data = await res.json();
+  const q = data.quote;
+  let html = '<p><b>Vendedor:</b> '+q.vendor_name+' ('+q.vendor_email+')</p>'+
+    '<p><b>Cliente:</b> '+(q.client_name||'—')+' — <b>Empresa:</b> '+(q.client_company||'—')+'</p>'+
+    '<p><b>Fecha:</b> '+fmtDate(q.created_at)+'</p>'+
+    '<table><thead><tr><th>Código</th><th>Descripción</th><th>Cant.</th><th>Desc.</th><th>P. Unit.</th><th>Subtotal</th></tr></thead><tbody>';
+  data.items.forEach(it => {
+    html += '<tr><td>'+it.codigo+'</td><td>'+it.descripcion+'</td><td>'+it.cantidad+'</td>'+
+      '<td>'+it.descuento_pct+'%</td><td>'+fmtMoney(it.precio_unitario)+'</td><td>'+fmtMoney(it.subtotal)+'</td></tr>';
+  });
+  html += '</tbody></table><p style="text-align:right;margin-top:10px;font-weight:700;">Total: '+fmtMoney(q.total)+'</p>';
+  document.getElementById('modal-body').innerHTML = html;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal(e) {
+  document.getElementById('modal-overlay').classList.remove('show');
+}
+</script>
+</body>
+</html>
