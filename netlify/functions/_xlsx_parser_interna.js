@@ -208,15 +208,16 @@ async function parseProductSheet(ws, sheetName, stats) {
   const imgMap = buildImageMap(ws, new Set(productRows), ws.workbook.model.media);
 
   const rowsOut = [];
+  let currentSeg = '';
   for (let r = HEADER_ROW + 1; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     if (row.hidden) continue;
     const sectionText = isSectionRow(row);
-    if (sectionText) { rowsOut.push({ type: 'section', seg: sectionText.replace(/▌/g, '').trim() }); continue; }
+    if (sectionText) { currentSeg = sectionText.replace(/▌/g, '').trim(); continue; }
     const codeVal = getCellValue(row.getCell(cols.codigo));
     if (!codeVal || normalizeHeader(codeVal) === 'CODIGO') continue;
 
-    const item = { type: 'product' };
+    const item = { seg: currentSeg };
     for (const [key, colNum] of Object.entries(cols)) {
       if (key === '__missing') continue;
       item[key] = getCellValue(row.getCell(colNum));
@@ -228,8 +229,8 @@ async function parseProductSheet(ws, sheetName, stats) {
     rowsOut.push(item);
   }
 
-  if (cols.__missing) stats[sheetName] = { columnasNoEncontradas: cols.__missing, productos: rowsOut.filter(x=>x.type==='product').length };
-  else stats[sheetName] = { productos: rowsOut.filter(x=>x.type==='product').length, conImagen: rowsOut.filter(x=>x.type==='product' && x.img).length };
+  if (cols.__missing) stats[sheetName] = { columnasNoEncontradas: cols.__missing, productos: rowsOut.length };
+  else stats[sheetName] = { productos: rowsOut.length, conImagen: rowsOut.filter(x=>x.img).length };
 
   return rowsOut;
 }
@@ -277,22 +278,23 @@ function parseServiciosSheet(ws, stats) {
   }
 
   const rowsOut = [];
+  let currentSeg = '';
   for (let r = HEADER_ROW + 1; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     if (row.hidden) continue;
     const sectionText = isSectionRow(row);
-    if (sectionText) { rowsOut.push({ type: 'section', seg: sectionText.replace(/▌/g, '').trim() }); continue; }
+    if (sectionText) { currentSeg = sectionText.replace(/▌/g, '').trim(); continue; }
     const codeVal = getCellValue(row.getCell(cols.codigo));
     if (!codeVal || normalizeHeader(codeVal) === 'CODIGO') continue;
 
-    const item = { type: 'product' };
+    const item = { seg: currentSeg };
     for (const [key, colNum] of Object.entries(cols)) {
       item[key] = getCellValue(row.getCell(colNum));
     }
     rowsOut.push(item);
   }
 
-  stats.SERVICIOS = { servicios: rowsOut.filter((x) => x.type === 'product').length };
+  stats.SERVICIOS = { servicios: rowsOut.length };
   return rowsOut;
 }
 
@@ -332,7 +334,7 @@ async function parseCatalogXlsxInterna(fileBuffer) {
 function applySharedPhotoOverrides(catalog) {
   const byCode = new Map();
   for (const items of Object.values(catalog)) {
-    for (const it of items) if (it.type === 'product' && it.codigo) byCode.set(it.codigo, it);
+    for (const it of items) if (it.codigo) byCode.set(it.codigo, it);
   }
   for (const { from, to } of SHARED_PHOTO_PAIRS) {
     const source = byCode.get(from);
