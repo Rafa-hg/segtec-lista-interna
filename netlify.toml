@@ -45,11 +45,41 @@
   to = "/.netlify/functions/vendors-create"
   status = 200
 
-[[redirects]]
+  [[redirects]]
   from = "/api/vendors-toggle"
   to = "/.netlify/functions/vendors-toggle"
   status = 200
 
+[[redirects]]
+  from = "/api/admin-catalog-upload-chunk"
+  to = "/.netlify/functions/admin-catalog-upload-chunk"
+  status = 200
+
+[[redirects]]
+  from = "/api/admin-catalog-upload-finish"
+  to = "/.netlify/functions/admin-catalog-upload-finish"
+  status = 200
+
+[[redirects]]
+  from = "/api/catalog"
+  to = "/.netlify/functions/catalog"
+  status = 200
+  
+  [[redirects]]
+  from = "/api/forgot-password"
+  to = /.netlify/functions/forgot-password"
+  status = 200
+
+  [[redirects]]
+  from = "/api/reset-password"
+  to = "/.netlify/functions/reset-password"
+  status = 200
+
+  [[redirects]]
+  from = "/api/vendors-admin-reset"
+  to = "/.netlify/functions/vendors-admin-reset"
+  status = 200
+  
 [[redirects]]
   from = "/"
   to = "/login.html"
