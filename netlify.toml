@@ -67,7 +67,7 @@
   
   [[redirects]]
   from = "/api/forgot-password"
-  to = /.netlify/functions/forgot-password"
+  to = "/.netlify/functions/forgot-password"
   status = 200
 
   [[redirects]]
