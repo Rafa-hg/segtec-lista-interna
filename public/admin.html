@@ -93,6 +93,7 @@
   <div class="tabnav">
     <button class="tab-btn active" onclick="switchPanel('vendedores', this)">Vendedores</button>
     <button class="tab-btn" onclick="switchPanel('presupuestos', this)">Presupuestos</button>
+    <button class="tab-btn" onclick="switchPanel('catalogo', this)">Catálogo</button>
   </div>
 
   <div class="main">
@@ -136,6 +137,32 @@
           <tbody id="quotes-tbody"></tbody>
         </table>
         <div class="empty" id="quotes-empty" style="display:none;">No hay presupuestos que coincidan con el filtro.</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-catalogo">
+      <div class="card">
+        <h3>Subir lista de precios / catálogo</h3>
+        <p style="font-size:12px;color:var(--gray);margin-bottom:14px;">
+          Subí el mismo archivo Excel de siempre ("Lista de Difusión SEGTEC"). Actualiza Corredizos,
+          Levadizos, Pivotantes, Accesorios y Servicios de una sola vez. Los vendedores ven los precios
+          nuevos apenas termina de procesarse, sin necesidad de volver a desplegar nada.
+        </p>
+        <div class="form-row">
+          <div class="field" style="flex:2;">
+            <label>Archivo (.xlsx)</label>
+            <input type="file" id="cat-file" accept=".xlsx">
+          </div>
+          <button class="btn" id="cat-btn" onclick="uploadCatalog()">Subir catálogo</button>
+        </div>
+        <div id="cat-progress" style="display:none;margin-top:14px;">
+          <div style="background:var(--border);border-radius:6px;height:10px;overflow:hidden;">
+            <div id="cat-progress-bar" style="background:var(--navy2);height:100%;width:0%;transition:width .2s;"></div>
+          </div>
+          <p id="cat-progress-text" style="font-size:11px;color:var(--gray);margin-top:6px;"></p>
+        </div>
+        <div class="login-error" id="cat-error" style="display:none;margin-top:10px;"></div>
+        <div id="cat-stats" style="display:none;margin-top:16px;"></div>
       </div>
     </div>
   </div>
@@ -211,6 +238,7 @@ function switchPanel(name, btn) {
   document.getElementById('panel-' + name).classList.add('active');
   btn.classList.add('active');
   if (name === 'presupuestos') loadQuotes();
+  if (name === 'catalogo') { document.getElementById('cat-stats').style.display = 'none'; document.getElementById('cat-error').style.display = 'none'; }
 }
 
 async function loadVendors() {
@@ -231,7 +259,8 @@ async function loadVendors() {
       '<td><span class="badge '+(v.active?'badge-on':'badge-off')+'">'+(v.active?'Activo':'Inactivo')+'</span></td>'+
       '<td>'+v.quotes_count+'</td>'+
       '<td>'+new Date(v.created_at).toLocaleDateString('es-AR')+'</td>'+
-      '<td><button class="link-btn" onclick="toggleVendor('+v.id+','+(!v.active)+')">'+(v.active?'Dar de baja':'Reactivar')+'</button></td>';
+      '<td><button class="link-btn" onclick="toggleVendor('+v.id+','+(!v.active)+')">'+(v.active?'Dar de baja':'Reactivar')+'</button>'+
+        ' · <button class="link-btn" onclick="resendReset('+v.id+')">Reenviar recuperación</button></td>';
     tbody.appendChild(tr);
     const opt = document.createElement('option');
     opt.value = v.id; opt.textContent = v.name;
@@ -274,6 +303,16 @@ async function toggleVendor(id, active) {
     body: JSON.stringify({ id, active }),
   });
   loadVendors();
+}
+
+async function resendReset(id) {
+  const res = await fetch('/api/vendors-admin-reset', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ vendorId: id }),
+  });
+  const data = await res.json().catch(() => ({}));
+  alert(data.message || (res.ok ? 'Mail de recuperación enviado.' : 'No se pudo enviar el mail.'));
 }
 
 function resetQuoteFilters() {
@@ -336,6 +375,102 @@ async function viewQuote(id) {
 
 function closeModal(e) {
   document.getElementById('modal-overlay').classList.remove('show');
+}
+
+// ── Subida del catálogo (Excel) por partes ──
+// El archivo se manda en pedazos porque Netlify Functions no acepta
+// requests de más de ~4.5MB; cada parte se guarda en la base y al final
+// se le pide al servidor que las una y procese el archivo completo.
+const CATALOG_CHUNK_CHARS = 3000000; // ~2.2MB de datos reales por parte, en base64
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // reader.result es "data:<mime>;base64,AAAA..." — nos quedamos con la parte de datos
+      const base64 = reader.result.split(',')[1] || '';
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadCatalog() {
+  const fileInput = document.getElementById('cat-file');
+  const file = fileInput.files[0];
+  const errorBox = document.getElementById('cat-error');
+  const statsBox = document.getElementById('cat-stats');
+  const progressWrap = document.getElementById('cat-progress');
+  const progressBar = document.getElementById('cat-progress-bar');
+  const progressText = document.getElementById('cat-progress-text');
+  const btn = document.getElementById('cat-btn');
+
+  errorBox.style.display = 'none';
+  statsBox.style.display = 'none';
+
+  if (!file) { errorBox.textContent = 'Elegí primero el archivo .xlsx.'; errorBox.style.display = 'block'; return; }
+
+  btn.disabled = true; btn.textContent = 'Subiendo...';
+  progressWrap.style.display = 'block';
+  progressBar.style.width = '0%';
+  progressText.textContent = 'Leyendo el archivo...';
+
+  try {
+    const base64 = await fileToBase64(file);
+    const uploadId = 'up_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const totalChunks = Math.max(1, Math.ceil(base64.length / CATALOG_CHUNK_CHARS));
+
+    for (let i = 0; i < totalChunks; i++) {
+      const chunkData = base64.slice(i * CATALOG_CHUNK_CHARS, (i + 1) * CATALOG_CHUNK_CHARS);
+      const res = await fetch('/api/admin-catalog-upload-chunk', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadId, chunkIndex: i, chunkData, filename: file.name }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Falló la subida de una parte del archivo. Intentá de nuevo.');
+      }
+      const pct = Math.round(((i + 1) / totalChunks) * 90); // dejamos 10% para el procesado final
+      progressBar.style.width = pct + '%';
+      progressText.textContent = 'Subiendo parte ' + (i + 1) + ' de ' + totalChunks + '...';
+    }
+
+    progressText.textContent = 'Procesando el catálogo...';
+    progressBar.style.width = '95%';
+
+    const finishRes = await fetch('/api/admin-catalog-upload-finish', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uploadId }),
+    });
+    const finishData = await finishRes.json().catch(() => ({}));
+    if (!finishRes.ok) throw new Error(finishData.error || 'No se pudo procesar el archivo.');
+
+    progressBar.style.width = '100%';
+    progressText.textContent = 'Listo.';
+
+    let statsHtml = '<h3 style="margin-top:0">Resultado</h3><table><thead><tr><th>Hoja</th><th>Ítems</th><th>Con imagen</th><th>Detalle</th></tr></thead><tbody>';
+    for (const [sheet, s] of Object.entries(finishData.stats || {})) {
+      statsHtml += '<tr><td>' + sheet + '</td>' +
+        '<td>' + (s.productos ?? s.servicios ?? '—') + '</td>' +
+        '<td>' + (s.conImagen ?? '—') + '</td>' +
+        '<td style="color:' + (s.error ? 'var(--red)' : 'var(--gray)') + '">' +
+          (s.error || (s.columnasNoEncontradas ? 'Faltan columnas: ' + s.columnasNoEncontradas.join(', ') : '—')) +
+        '</td></tr>';
+    }
+    statsHtml += '</tbody></table>';
+    statsBox.innerHTML = statsHtml;
+    statsBox.style.display = 'block';
+    fileInput.value = '';
+  } catch (e) {
+    errorBox.textContent = e.message || 'Ocurrió un error al subir el catálogo.';
+    errorBox.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Subir catálogo';
+    setTimeout(() => { progressWrap.style.display = 'none'; }, 1500);
+  }
 }
 </script>
 </body>
